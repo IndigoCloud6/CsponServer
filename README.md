@@ -50,3 +50,13 @@
 2. 使用 `vcpkg` 安装项目依赖：
    ```bash
    vcpkg install drogon gdal jsoncpp
+
+
+## 请我喝杯咖啡 ☕
+
+如果您觉得本项目对您有帮助，可以请我喝杯咖啡哦~ 😊
+
+![微信二维码](image/to/wx-donate.png)
+
+感谢您的支持！
+
