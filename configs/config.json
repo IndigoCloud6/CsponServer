@@ -1,0 +1,58 @@
+﻿{
+  "app": {
+    "client_max_body_size": "5G",
+    "log": {
+      "log_path": "./logs",
+      "logfile_base_name": "cspon_server",
+      "log_size_limit": 100000000,
+      "log_level": "DEBUG"
+    }
+  },
+  "listeners": [
+    {
+      "address": "0.0.0.0",
+      "port": 6543,
+      "https": false
+    }
+  ],
+  "db_clients": [
+    {
+      "name": "local",
+      "rdbms": "postgresql",
+      "host": "172.16.128.244",
+      "port": 4321,
+      "dbname": "maxyun",
+      "user": "postgres",
+      "passwd": "3e4R78&*",
+      "is_fast": false,
+      "connection_number": 1
+    }
+  ],
+  "plugins": [
+    {
+      "name": "drogon::plugin::GlobalFilters",
+      "dependencies": [],
+      "config": {
+        "filters": [
+          "CorsFilter"
+        ],
+        "exempt": [
+        ]
+      }
+    },
+    {
+      "name": "drogon::plugin::AccessLogger",
+      "dependencies": [],
+      "config": {
+        "use_spdlog": false,
+        "log_path": "./logs",
+        "log_format": "",
+        "log_file": "access.log",
+        "log_size_limit": 0,
+        "use_local_time": true,
+        "log_index": 0,
+        "show_microseconds": true
+      }
+    }
+  ]
+}

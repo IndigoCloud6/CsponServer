@@ -1,0 +1,27 @@
+{
+  "dependencies": [
+    "boost",
+    "bshoshany-thread-pool",
+    {
+      "name": "drogon",
+      "features": [
+        "ctl",
+        "orm",
+        "postgres",
+        "sqlite3"
+      ]
+    },
+    "fmt",
+    "gdal",
+    "geos",
+    {
+      "name": "libpq",
+      "features": [
+        "openssl"
+      ]
+    },
+    "rapidjson",
+    "sqlite3",
+    "taskflow"
+  ]
+}
