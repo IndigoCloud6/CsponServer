@@ -1,10 +1,10 @@
 {
   "rdbms": "postgresql",
-  "host": "172.16.128.244",
-  "port": 4321,
-  "dbname": "maxyun",
-  "user": "postgres",
-  "passwd": "3e4R78&*",
+  "host": "**************",
+  "port": ******,
+  "dbname": "*******",
+  "user": "*******",
+  "passwd": "********",
   "tables": [
     "jbcy_2569520"
   ],
