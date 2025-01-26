@@ -57,6 +57,7 @@
 如果您觉得本项目对您有帮助，可以请我喝杯咖啡哦~ 😊
 
 ![微信二维码](image/donate/wx-donate.jpg)
+<img src="image/donate/wx-donate.jpg" alt="微信二维码" width="200">
 
 感谢您的支持！
 
