@@ -4,6 +4,7 @@ project(CsponServer)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
 # 根据构建配置（Debug 或 Release）设置运行时库
 set(CMAKE_MSVC_RUNTIME_LIBRARY
         "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Release>:>")
@@ -77,16 +78,16 @@ if (TARGET GDAL::GDAL)
     if (NOT GDAL_DATA_DIR)
         # 默认路径（如果未定义）
         set(GDAL_DATA_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/gdal")
-    endif()
-endif()
+    endif ()
+endif ()
 
 if (TARGET PROJ::proj)
     get_target_property(PROJ_LIB_DIR PROJ::proj PROJ_LIB)
     if (NOT PROJ_LIB_DIR)
         # 默认路径（如果未定义）
         set(PROJ_LIB_DIR "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/proj")
-    endif()
-endif()
+    endif ()
+endif ()
 
 # 复制 GDAL_DATA
 if (GDAL_DATA_DIR)
@@ -96,7 +97,7 @@ if (GDAL_DATA_DIR)
             "${GDAL_DATA_DIR}" "${OUTPUT_DIR}/gdal_data"
     )
     message(STATUS "GDAL data directory: ${GDAL_DATA_DIR}")
-endif()
+endif ()
 
 # 复制 PROJ_LIB
 if (PROJ_LIB_DIR)
@@ -106,7 +107,7 @@ if (PROJ_LIB_DIR)
             "${PROJ_LIB_DIR}" "${OUTPUT_DIR}/proj_lib"
     )
     message(STATUS "PROJ lib directory: ${PROJ_LIB_DIR}")
-endif()
+endif ()
 
 add_custom_command(
         TARGET ${PROJECT_NAME} POST_BUILD

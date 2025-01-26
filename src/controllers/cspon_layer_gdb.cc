@@ -23,7 +23,7 @@ std::string GetCurrentDirectory() {
 
 #if defined(_WIN32) || defined(_WIN64)
     if (!_getcwd(pathBuffer, sizeof(pathBuffer))) {
-        LOG_INFO <<  "无法获取 Windows 平台的当前工作目录。\n";
+        LOG_INFO << "无法获取 Windows 平台的当前工作目录。\n";
         return "";
     }
 #else
@@ -126,7 +126,6 @@ void gdb::getGdbInfo(const HttpRequestPtr &pReq, std::function<void(const HttpRe
 
     Json::Value responseJson;
     auto pReqJson = pReq->getJsonObject();
-
     // 优化 GDAL 性能
     CPLSetConfigOption("GDAL_CACHEMAX", "512");
     CPLSetConfigOption("GDAL_NUM_THREADS", "ALL_CPUS");
