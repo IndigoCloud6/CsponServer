@@ -121,9 +121,11 @@ static void ReportHierarchicalLayers(CPLJSONObject &oRoot, const GDALGroup *grou
 
 // 获取 GDAL GDB 信息的处理函数
 void gdb::getGdbInfo(const HttpRequestPtr &pReq, std::function<void(const HttpResponsePtr &)> &&fCallback) {
-    InitializeGDALDataAndProjLib();
-    GDALAllRegister();
-
+    static std::once_flag gdalInitFlag;
+    std::call_once(gdalInitFlag, []() {
+        InitializeGDALDataAndProjLib();
+        GDALAllRegister();
+    });
     Json::Value responseJson;
     auto pReqJson = pReq->getJsonObject();
     // 优化 GDAL 性能
@@ -178,5 +180,148 @@ void gdb::getGdbInfo(const HttpRequestPtr &pReq, std::function<void(const HttpRe
 
     auto response = HttpResponse::newHttpJsonResponse(responseJson);
     response->setStatusCode(responseJson["code"].asInt() == 200 ? drogon::k200OK : drogon::k400BadRequest);
+    fCallback(response);
+}
+
+// 获取 GDAL GDB 信息的处理函数
+void gdb::GetLayerFeatures(const HttpRequestPtr &pReq, std::function<void(const HttpResponsePtr &)> &&fCallback) {
+    static std::once_flag gdalInitFlag;
+    std::call_once(gdalInitFlag, []() {
+        InitializeGDALDataAndProjLib();
+        GDALAllRegister();
+    });
+
+    Json::Value responseJson;
+    auto pReqJson = pReq->getJsonObject();
+    if (!pReqJson) {
+        responseJson["code"] = 400;
+        responseJson["message"] = "无效或缺失的 JSON 请求体";
+        auto response = HttpResponse::newHttpJsonResponse(responseJson);
+        response->setStatusCode(drogon::k400BadRequest);
+        fCallback(response);
+        return;
+    }
+
+    // 解析参数
+    std::string filePath = (*pReqJson)["file_path"].asString();
+    std::string layerName = (*pReqJson)["layer"].asString();
+    int page = (*pReqJson).get("page", 1).asInt(); // 页码（默认第1页）
+    int pageSize = (*pReqJson).get("page_size", 10).asInt(); // 每页要素数量（默认10）
+
+    if (page < 1 || pageSize <= 0) {
+        responseJson["code"] = 400;
+        responseJson["message"] = "无效的分页参数";
+        auto response = HttpResponse::newHttpJsonResponse(responseJson);
+        response->setStatusCode(drogon::k400BadRequest);
+        fCallback(response);
+        return;
+    }
+
+    // 打开数据集，仅允许 OpenFileGDB 驱动
+    const char *allowedDrivers[] = {"OpenFileGDB", nullptr};
+    std::unique_ptr<GDALDataset> dataset(
+        GDALDataset::Open(filePath.c_str(), GDAL_OF_VECTOR, const_cast<char **>(allowedDrivers)));
+
+    if (!dataset) {
+        responseJson["code"] = 400;
+        responseJson["message"] = "无法打开文件";
+        auto response = HttpResponse::newHttpJsonResponse(responseJson);
+        response->setStatusCode(drogon::k400BadRequest);
+        fCallback(response);
+        return;
+    }
+
+    OGRLayer *poLayer = dataset->GetLayerByName(layerName.c_str());
+    if (!poLayer) {
+        responseJson["code"] = 400;
+        responseJson["message"] = "图层不存在";
+        auto response = HttpResponse::newHttpJsonResponse(responseJson);
+        response->setStatusCode(drogon::k400BadRequest);
+        fCallback(response);
+        return;
+    }
+
+    // 获取总要素数
+    int totalFeatures = poLayer->GetFeatureCount();
+    int startIndex = (page - 1) * pageSize;
+    int endIndex = std::min(startIndex + pageSize, totalFeatures);
+
+    if (startIndex >= totalFeatures) {
+        responseJson["code"] = 200;
+        responseJson["data"]["type"] = "FeatureCollection";
+        responseJson["data"]["features"] = Json::arrayValue;
+        responseJson["pagination"]["current_page"] = page;
+        responseJson["pagination"]["page_size"] = pageSize;
+        responseJson["pagination"]["total_features"] = totalFeatures;
+        auto response = HttpResponse::newHttpJsonResponse(responseJson);
+        response->setStatusCode(drogon::k200OK);
+        fCallback(response);
+        return;
+    }
+
+    // 准备输出
+    Json::Value root;
+    root["type"] = "FeatureCollection";
+    root["features"] = Json::arrayValue;
+
+    for (int i = startIndex; i <= endIndex; ++i) {
+        OGRFeature *poFeature = poLayer->GetFeature(i);
+        if (!poFeature) {
+            continue; // 如果特定索引无效，跳过
+        }
+
+        Json::Value feature;
+        feature["type"] = "Feature";
+
+        // 提取属性
+        Json::Value properties(Json::objectValue);
+        OGRFeatureDefn *poFDefn = poLayer->GetLayerDefn();
+        for (int iField = 0; iField < poFDefn->GetFieldCount(); ++iField) {
+            OGRFieldDefn *poFieldDefn = poFDefn->GetFieldDefn(iField);
+            const char *fieldName = poFieldDefn->GetNameRef();
+
+            if (poFeature->IsFieldSet(iField)) {
+                switch (poFieldDefn->GetType()) {
+                    case OFTInteger:
+                        properties[fieldName] = poFeature->GetFieldAsInteger(iField);
+                        break;
+                    case OFTReal:
+                        properties[fieldName] = poFeature->GetFieldAsDouble(iField);
+                        break;
+                    default:
+                        properties[fieldName] = poFeature->GetFieldAsString(iField);
+                        break;
+                }
+            }
+        }
+        feature["properties"] = properties;
+
+        // 提取几何信息
+        if (OGRGeometry *poGeometry = poFeature->GetGeometryRef()) {
+            char *geomJSON = poGeometry->exportToJson();
+            if (geomJSON) {
+                Json::CharReaderBuilder readerBuilder;
+                std::unique_ptr<Json::CharReader> reader(readerBuilder.newCharReader());
+                Json::Value geometryJson;
+                std::string errors;
+                reader->parse(geomJSON, geomJSON + std::strlen(geomJSON), &geometryJson, &errors);
+                feature["geometry"] = geometryJson;
+                CPLFree(geomJSON);
+            }
+        }
+
+        root["features"].append(std::move(feature));
+        OGRFeature::DestroyFeature(poFeature);
+    }
+
+    // 返回结果
+    responseJson["code"] = 200;
+    responseJson["data"] = root;
+    responseJson["pagination"]["current_page"] = page;
+    responseJson["pagination"]["page_size"] = pageSize;
+    responseJson["pagination"]["total_features"] = totalFeatures;
+
+    auto response = HttpResponse::newHttpJsonResponse(responseJson);
+    response->setStatusCode(drogon::k200OK);
     fCallback(response);
 }
